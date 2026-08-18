@@ -8,7 +8,7 @@ The generated standalone HTML file allows users to dynamically configure pipelin
 
 ## Features
 
-- **Automatic Profile Discovery**: Reads `nextflow.config` to dynamically extract all available profiles (e.g. `local`, `hpc`, `standard`, `test`, `newcrg`, `novoa`, etc.).
+- **Automatic Profile Discovery**: Reads `nextflow.config` to dynamically extract all available profiles (e.g. `local`, `hpc`, `standard`, `test`, etc.).
 - **Smart Parameter Inference**: Analyzes `params.yaml` values, types, section headers, and inline comments to generate:
   - **Dropdown selects** when choices or options are annotated in comments (`## Can be minimap2 / bwa / skip`, `(can be YES or skip)`).
   - **Number inputs** for integer and float thresholds.
@@ -125,7 +125,7 @@ input: "data/sample.fastq"
 ## Read alignment tool. Can be minimap2 / bwa / bowtie2 / skip
 aligner: "minimap2"
 
-## Filter low quality reads. Can be YES or skip
+## Filter low-quality reads. Can be YES or skip
 filter_quality: "YES"
 
 ## Number of CPU threads to allocate per task
