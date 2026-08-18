@@ -209,6 +209,7 @@
 
     <script>
         const inputsData = [{"id": "profile", "label": "Nextflow Profile", "type": "select", "options": ["local", "hpc"], "default": "local", "section": "Execution Settings"}, {"id": "work_dir", "label": "Work Directory", "type": "text", "default": "", "placeholder": "work (Optional)", "fullWidth": true, "section": "Execution Settings"}, {"id": "paramsFile", "label": "Params File Name", "type": "text", "default": "params.yaml", "placeholder": "params.yaml", "fullWidth": true, "help": "The filename to save the generated YAML under (default: params.yaml).", "section": "Execution Settings"}, {"id": "resume", "label": "Resume Execution (-resume)", "type": "checkbox", "default": false, "section": "Execution Settings"}, {"id": "bg", "label": "Run in Background (-bg)", "type": "checkbox", "default": false, "section": "Execution Settings"}, {"id": "input", "label": "Input", "type": "text", "default": "data/sample.fastq", "section": "Input & Reference Files", "placeholder": "Path to input", "help": "Path to input FASTQ or BAM file"}, {"id": "reference", "label": "Reference", "type": "text", "default": "data/reference.fasta", "section": "Input & Reference Files", "placeholder": "Path to reference", "help": "Path to reference genome FASTA file"}, {"id": "annotation", "label": "Annotation", "type": "text", "default": "", "section": "Input & Reference Files", "placeholder": "Path to annotation", "help": "Optional reference annotation GTF/GFF file (leave empty if not available)"}, {"id": "aligner", "label": "Aligner", "type": "select", "default": "minimap2", "section": "Analysis & Processing Options", "options": ["minimap2", "bwa", "bowtie2", "skip"], "help": "Read alignment tool. Can be minimap2 / bwa / bowtie2 / skip"}, {"id": "qc_mode", "label": "Qc Mode", "type": "select", "default": "standard", "section": "Analysis & Processing Options", "options": ["fast", "standard", "thorough", "skip"], "help": "Quality control analysis mode. Can be fast / standard / thorough / skip"}, {"id": "variant_caller", "label": "Variant Caller", "type": "select", "default": "freebayes", "section": "Analysis & Processing Options", "options": ["freebayes", "clair3", "bcftools", "skip"], "help": "Variant calling algorithm. Can be freebayes / clair3 / bcftools / skip"}, {"id": "filter_quality", "label": "Filter Quality", "type": "select", "default": "YES", "section": "Analysis & Processing Options", "options": ["YES", "skip"], "help": "Filter low quality reads. Can be YES or skip"}, {"id": "threads", "label": "Threads", "type": "number", "default": 4, "section": "Resource & Filtering Thresholds", "help": "Number of CPU threads to allocate per task"}, {"id": "min_read_length", "label": "Min Read Length", "type": "number", "default": 50, "section": "Resource & Filtering Thresholds", "help": "Minimum read length in base pairs for QC filtering"}, {"id": "subsample_pct", "label": "Subsample Pct", "type": "number", "default": 100, "section": "Resource & Filtering Thresholds", "help": "Percentage of reads to process (1-100)"}, {"id": "output_dir", "label": "Output Dir", "type": "text", "default": "results", "section": "Flags & Output Configuration", "placeholder": "Path to output_dir", "help": "Directory where final outputs and reports will be saved"}, {"id": "save_intermediate", "label": "Save Intermediate", "type": "checkbox", "default": false, "section": "Flags & Output Configuration", "options": ["true", "false"], "help": "Save intermediate alignment BAM files (true/false)"}, {"id": "verbose", "label": "Verbose", "type": "checkbox", "default": true, "section": "Flags & Output Configuration", "help": "Enable detailed verbose logging"}, {"id": "slackhook", "label": "Slackhook", "type": "select", "default": "skip", "section": "Flags & Output Configuration", "options": ["URL", "skip"], "help": "Slack webhook URL for notifications (can be URL or skip)"}];
+        const yamlLinesData = [{"type": "comment", "text": "# =============================================================================="}, {"type": "comment", "text": "# Pipeline Parameters"}, {"type": "comment", "text": "# =============================================================================="}, {"type": "empty"}, {"type": "comment", "text": "# Input & Reference Files"}, {"type": "comment", "text": "# -----------------------"}, {"type": "comment", "text": "## Path to input FASTQ or BAM file"}, {"type": "field", "id": "input", "key": "input", "indent": "", "colonSep": ": ", "quote": "\"", "val": "data/sample.fastq", "isBool": false, "isNumber": false, "inlineComment": ""}, {"type": "empty"}, {"type": "comment", "text": "## Path to reference genome FASTA file"}, {"type": "field", "id": "reference", "key": "reference", "indent": "", "colonSep": ": ", "quote": "\"", "val": "data/reference.fasta", "isBool": false, "isNumber": false, "inlineComment": ""}, {"type": "empty"}, {"type": "comment", "text": "## Optional reference annotation GTF/GFF file (leave empty if not available)"}, {"type": "field", "id": "annotation", "key": "annotation", "indent": "", "colonSep": ": ", "quote": "\"", "val": "", "isBool": false, "isNumber": false, "inlineComment": ""}, {"type": "empty"}, {"type": "comment", "text": "# Analysis & Processing Options"}, {"type": "comment", "text": "# -----------------------------"}, {"type": "comment", "text": "## Read alignment tool. Can be minimap2 / bwa / bowtie2 / skip"}, {"type": "field", "id": "aligner", "key": "aligner", "indent": "", "colonSep": ": ", "quote": "\"", "val": "minimap2", "isBool": false, "isNumber": false, "inlineComment": ""}, {"type": "empty"}, {"type": "comment", "text": "## Quality control analysis mode. Can be fast / standard / thorough / skip"}, {"type": "field", "id": "qc_mode", "key": "qc_mode", "indent": "", "colonSep": ": ", "quote": "\"", "val": "standard", "isBool": false, "isNumber": false, "inlineComment": ""}, {"type": "empty"}, {"type": "comment", "text": "## Variant calling algorithm. Can be freebayes / clair3 / bcftools / skip"}, {"type": "field", "id": "variant_caller", "key": "variant_caller", "indent": "", "colonSep": ": ", "quote": "\"", "val": "freebayes", "isBool": false, "isNumber": false, "inlineComment": ""}, {"type": "empty"}, {"type": "comment", "text": "## Filter low quality reads. Can be YES or skip"}, {"type": "field", "id": "filter_quality", "key": "filter_quality", "indent": "", "colonSep": ": ", "quote": "\"", "val": "YES", "isBool": false, "isNumber": false, "inlineComment": ""}, {"type": "empty"}, {"type": "comment", "text": "# Resource & Filtering Thresholds"}, {"type": "comment", "text": "# -------------------------------"}, {"type": "comment", "text": "## Number of CPU threads to allocate per task"}, {"type": "field", "id": "threads", "key": "threads", "indent": "", "colonSep": ": ", "quote": "", "val": 4, "isBool": false, "isNumber": true, "inlineComment": ""}, {"type": "empty"}, {"type": "comment", "text": "## Minimum read length in base pairs for QC filtering"}, {"type": "field", "id": "min_read_length", "key": "min_read_length", "indent": "", "colonSep": ": ", "quote": "", "val": 50, "isBool": false, "isNumber": true, "inlineComment": ""}, {"type": "empty"}, {"type": "comment", "text": "## Percentage of reads to process (1-100)"}, {"type": "field", "id": "subsample_pct", "key": "subsample_pct", "indent": "", "colonSep": ": ", "quote": "", "val": 100, "isBool": false, "isNumber": true, "inlineComment": ""}, {"type": "empty"}, {"type": "comment", "text": "# Flags & Output Configuration"}, {"type": "comment", "text": "# ----------------------------"}, {"type": "comment", "text": "## Directory where final outputs and reports will be saved"}, {"type": "field", "id": "output_dir", "key": "output_dir", "indent": "", "colonSep": ": ", "quote": "\"", "val": "results", "isBool": false, "isNumber": false, "inlineComment": ""}, {"type": "empty"}, {"type": "comment", "text": "## Save intermediate alignment BAM files (true/false)"}, {"type": "field", "id": "save_intermediate", "key": "save_intermediate", "indent": "", "colonSep": ": ", "quote": "", "val": false, "isBool": true, "isNumber": false, "inlineComment": ""}, {"type": "empty"}, {"type": "comment", "text": "## Enable detailed verbose logging"}, {"type": "field", "id": "verbose", "key": "verbose", "indent": "", "colonSep": ": ", "quote": "", "val": true, "isBool": true, "isNumber": false, "inlineComment": ""}, {"type": "empty"}, {"type": "comment", "text": "## Slack webhook URL for notifications (can be URL or skip)"}, {"type": "field", "id": "slackhook", "key": "slackhook", "indent": "", "colonSep": ": ", "quote": "\"", "val": "skip", "isBool": false, "isNumber": false, "inlineComment": ""}];
         const pipelinePath = "main.nf";
 
         function renderInputs() {
@@ -272,7 +273,6 @@
 
         function generateCommand() {
             let cmd = `nextflow run ${pipelinePath}`;
-            let yaml = '';
             
             const profileEl = document.getElementById('profile');
             if (profileEl && profileEl.value) {
@@ -298,30 +298,57 @@
             const paramsFile = (paramsFileEl && paramsFileEl.value.trim()) ? paramsFileEl.value.trim() : 'params.yaml';
             cmd += ` -params-file ${paramsFile}`;
 
-            inputsData.forEach(field => {
-                if (['profile', 'work_dir', 'paramsFile', 'resume', 'bg'].includes(field.id)) return;
-                
-                const el = document.getElementById(field.id);
-                if (!el) return;
-
-                if (field.type === 'checkbox') {
-                    const isChecked = el.checked;
-                    if (isChecked || field.default !== false) {
-                        yaml += `${field.id}: ${isChecked}\n`;
-                    }
-                } else {
-                    const val = el.value;
-                    if (val !== '') {
-                        if (field.type === 'number') {
-                            yaml += `${field.id}: ${val}\n`;
-                        } else {
-                            yaml += `${field.id}: "${val}"\n`;
+            let yaml = '';
+            if (yamlLinesData && yamlLinesData.length > 0) {
+                yamlLinesData.forEach(line => {
+                    if (line.type === 'comment') {
+                        yaml += line.text + '\n';
+                    } else if (line.type === 'empty') {
+                        yaml += '\n';
+                    } else if (line.type === 'parent') {
+                        yaml += line.text + '\n';
+                    } else if (line.type === 'field') {
+                        const el = document.getElementById(line.id);
+                        let val = line.val;
+                        if (el) {
+                            val = (el.type === 'checkbox') ? el.checked : el.value;
                         }
-                    } else if (field.preserveEmpty) {
-                        yaml += `${field.id}: ""\n`;
+                        
+                        let valStr = '';
+                        if (typeof val === 'boolean' || line.isBool) {
+                            valStr = val ? 'true' : 'false';
+                        } else if (line.isNumber) {
+                            valStr = (val !== '' && val !== null && val !== undefined) ? String(val) : '0';
+                        } else if (line.quote === '"') {
+                            valStr = `"${val}"`;
+                        } else if (line.quote === "'") {
+                            valStr = `'${val}'`;
+                        } else {
+                            valStr = String(val);
+                        }
+                        
+                        const colonSep = line.colonSep || ': ';
+                        yaml += `${line.indent}${line.key}${colonSep}${valStr}${line.inlineComment || ''}\n`;
                     }
-                }
-            });
+                });
+            } else {
+                // Fallback if no yamlLinesData
+                inputsData.forEach(field => {
+                    if (['profile', 'work_dir', 'paramsFile', 'resume', 'bg'].includes(field.id)) return;
+                    const el = document.getElementById(field.id);
+                    if (!el) return;
+                    if (field.type === 'checkbox') {
+                        yaml += `${field.id}: ${el.checked}\n`;
+                    } else {
+                        const v = el.value;
+                        if (field.type === 'number') {
+                            yaml += `${field.id}: ${v}\n`;
+                        } else {
+                            yaml += `${field.id}: "${v}"\n`;
+                        }
+                    }
+                });
+            }
             
             document.getElementById('commandOutput').textContent = cmd;
             document.getElementById('yamlOutput').textContent = yaml;

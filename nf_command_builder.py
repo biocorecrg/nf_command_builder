@@ -5,6 +5,9 @@ Nextflow Command Builder Generator
 Generates an interactive, standalone HTML command and parameter builder
 from Nextflow pipeline configuration files (`nextflow.config`) and parameters YAML (`params.yaml`).
 
+Preserves 100% of original YAML comments, nested blocks (e.g. progPars),
+indentation, and formatting in the final output.
+
 Author: Luca Cozzuto & DeepMind AI
 """
 
@@ -227,6 +230,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
     <script>
         const inputsData = {fields_json};
+        const yamlLinesData = {yaml_lines_json};
         const pipelinePath = "{pipeline_path}";
 
         function renderInputs() {{
@@ -290,7 +294,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
         function generateCommand() {{
             let cmd = `nextflow run ${{pipelinePath}}`;
-            let yaml = '';
             
             const profileEl = document.getElementById('profile');
             if (profileEl && profileEl.value) {{
@@ -316,30 +319,57 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             const paramsFile = (paramsFileEl && paramsFileEl.value.trim()) ? paramsFileEl.value.trim() : 'params.yaml';
             cmd += ` -params-file ${{paramsFile}}`;
 
-            inputsData.forEach(field => {{
-                if (['profile', 'work_dir', 'paramsFile', 'resume', 'bg'].includes(field.id)) return;
-                
-                const el = document.getElementById(field.id);
-                if (!el) return;
-
-                if (field.type === 'checkbox') {{
-                    const isChecked = el.checked;
-                    if (isChecked || field.default !== false) {{
-                        yaml += `${{field.id}}: ${{isChecked}}\\n`;
-                    }}
-                }} else {{
-                    const val = el.value;
-                    if (val !== '') {{
-                        if (field.type === 'number') {{
-                            yaml += `${{field.id}}: ${{val}}\\n`;
-                        }} else {{
-                            yaml += `${{field.id}}: "${{val}}"\\n`;
+            let yaml = '';
+            if (yamlLinesData && yamlLinesData.length > 0) {{
+                yamlLinesData.forEach(line => {{
+                    if (line.type === 'comment') {{
+                        yaml += line.text + '\\n';
+                    }} else if (line.type === 'empty') {{
+                        yaml += '\\n';
+                    }} else if (line.type === 'parent') {{
+                        yaml += line.text + '\\n';
+                    }} else if (line.type === 'field') {{
+                        const el = document.getElementById(line.id);
+                        let val = line.val;
+                        if (el) {{
+                            val = (el.type === 'checkbox') ? el.checked : el.value;
                         }}
-                    }} else if (field.preserveEmpty) {{
-                        yaml += `${{field.id}}: ""\\n`;
+                        
+                        let valStr = '';
+                        if (typeof val === 'boolean' || line.isBool) {{
+                            valStr = val ? 'true' : 'false';
+                        }} else if (line.isNumber) {{
+                            valStr = (val !== '' && val !== null && val !== undefined) ? String(val) : '0';
+                        }} else if (line.quote === '"') {{
+                            valStr = `"${{val}}"`;
+                        }} else if (line.quote === "'") {{
+                            valStr = `'${{val}}'`;
+                        }} else {{
+                            valStr = String(val);
+                        }}
+                        
+                        const colonSep = line.colonSep || ': ';
+                        yaml += `${{line.indent}}${{line.key}}${{colonSep}}${{valStr}}${{line.inlineComment || ''}}\\n`;
                     }}
-                }}
-            }});
+                }});
+            }} else {{
+                // Fallback if no yamlLinesData
+                inputsData.forEach(field => {{
+                    if (['profile', 'work_dir', 'paramsFile', 'resume', 'bg'].includes(field.id)) return;
+                    const el = document.getElementById(field.id);
+                    if (!el) return;
+                    if (field.type === 'checkbox') {{
+                        yaml += `${{field.id}}: ${{el.checked}}\\n`;
+                    }} else {{
+                        const v = el.value;
+                        if (field.type === 'number') {{
+                            yaml += `${{field.id}}: ${{v}}\\n`;
+                        }} else {{
+                            yaml += `${{field.id}}: "${{v}}"\\n`;
+                        }}
+                    }}
+                }});
+            }}
             
             document.getElementById('commandOutput').textContent = cmd;
             document.getElementById('yamlOutput').textContent = yaml;
@@ -385,7 +415,7 @@ def parse_nextflow_config(config_path):
     with open(config_path, 'r', encoding='utf-8') as f:
         content = f.read()
 
-    # Remove single-line and multi-line comments
+    # Remove multi-line comments
     content_no_comments = re.sub(r'/\*[\s\S]*?\*/', '', content)
     
     # Extract manifest details
@@ -415,11 +445,9 @@ def parse_nextflow_config(config_path):
         lines = block.splitlines()
         for line in lines:
             line_str = line.strip()
-            # Ignore lines starting with //
             if line_str.startswith('//'):
                 continue
             
-            # Find profile entry when depth is 1
             if depth == 1:
                 prof_m = re.match(r'([a-zA-Z0-9_-]+)\s*\{', line_str)
                 if prof_m:
@@ -427,7 +455,6 @@ def parse_nextflow_config(config_path):
                     if prof_name not in profiles:
                         profiles.append(prof_name)
 
-            # Update brace depth
             open_count = line_str.count('{')
             close_count = line_str.count('}')
             depth += open_count - close_count
@@ -494,104 +521,150 @@ def format_label(key):
     return ' '.join(w.capitalize() for w in words)
 
 
-def parse_params_yaml(yaml_path):
+def parse_params_yaml_full(yaml_path):
     """
-    Parses a params.yaml file to extract fields, comments, defaults, types, and sections.
+    Parses a params.yaml file:
+    1. Extracts all lines (comments, sections, nested blocks, empty lines) to ensure 100% exact YAML preservation.
+    2. Builds form input descriptors for all scalar keys.
     """
     if not os.path.exists(yaml_path):
-        return []
+        return [], []
 
     with open(yaml_path, 'r', encoding='utf-8') as f:
         raw_lines = f.readlines()
 
-    try:
-        with open(yaml_path, 'r', encoding='utf-8') as f:
-            parsed_data = yaml.safe_load(f) or {}
-    except Exception:
-        parsed_data = {}
-
-    fields = []
+    yaml_lines = []
+    form_fields = []
+    
     pending_comments = []
     current_section = None
+    parent_stack = []  # List of (indent_level, key_name)
 
     for line in raw_lines:
-        # Check indentation: only process top-level keys
-        if line.startswith(' ') or line.startswith('\t'):
-            continue
+        raw_line = line.rstrip('\r\n')
+        stripped = raw_line.strip()
 
-        stripped = line.strip()
+        # Empty line
         if not stripped:
+            yaml_lines.append({'type': 'empty'})
             continue
 
-        # Check comment lines
+        # Comment line
         if stripped.startswith('#'):
-            # Detect section header, e.g., "# Input files #" or "# --- Input files ---"
             sec_m = re.match(r'^#+[\s\-=*]*([A-Za-z0-9][A-Za-z0-9\s&/_()-]+?)[\s\-=*]*#*$', stripped)
             if sec_m and not stripped.startswith('##'):
                 candidate = sec_m.group(1).strip()
                 if candidate and not all(c in '=-*#' for c in candidate) and len(candidate) > 2:
                     current_section = candidate
             else:
-                comment_clean = stripped.lstrip('#').strip()
-                if comment_clean and not all(c in '=-*#' for c in comment_clean):
-                    pending_comments.append(comment_clean)
+                c_clean = stripped.lstrip('#').strip()
+                if c_clean and not all(c in '=-*#' for c in c_clean):
+                    pending_comments.append(c_clean)
+
+            yaml_lines.append({'type': 'comment', 'text': raw_line})
             continue
 
-        # Match key-value line
-        kv_m = re.match(r'^([a-zA-Z0-9_.-]+)\s*:\s*(.*)$', stripped)
+        # Measure indentation
+        indent_len = len(raw_line) - len(raw_line.lstrip())
+
+        # Update parent stack
+        while parent_stack and parent_stack[-1][0] >= indent_len:
+            parent_stack.pop()
+
+        # Check if parent block (key without value, e.g. 'header:' or 'progPars:')
+        parent_m = re.match(r'^(\s*)([a-zA-Z0-9_.-]+)\s*:\s*(?:#.*)?$', raw_line)
+        if parent_m:
+            p_indent = parent_m.group(1)
+            p_key = parent_m.group(2)
+            parent_stack.append((indent_len, p_key))
+            yaml_lines.append({'type': 'parent', 'text': raw_line})
+            continue
+
+        # Key-value line
+        kv_m = re.match(r'^(\s*)([a-zA-Z0-9_.-]+)(\s*:\s*)(.*?)(?:\s+(#.*))?$', raw_line)
         if kv_m:
-            key = kv_m.group(1)
-            raw_val = kv_m.group(2).strip()
+            k_indent = kv_m.group(1)
+            k_key = kv_m.group(2)
+            k_colon_sep = kv_m.group(3)
+            k_val = kv_m.group(4).strip()
+            k_inline_comment = kv_m.group(5) or ''
+
+            path_parts = [p[1] for p in parent_stack] + [k_key]
+            field_id = '__'.join(path_parts)
+
+            quote = ''
+            parsed_val = k_val
+            is_bool = False
+            is_number = False
+
+            if (k_val.startswith('\"') and k_val.endswith('\"')) or (k_val.startswith('\'') and k_val.endswith('\'')):
+                quote = k_val[0]
+                parsed_val = k_val[1:-1]
+            elif k_val.lower() in ['true', 'false']:
+                is_bool = True
+                parsed_val = (k_val.lower() == 'true')
+            else:
+                try:
+                    num = float(k_val)
+                    is_number = True
+                    parsed_val = int(k_val) if k_val.isdigit() else num
+                except ValueError:
+                    parsed_val = k_val
 
             help_text = ' '.join(pending_comments).strip()
             pending_comments = []
 
-            # Get parsed value if available
-            parsed_val = parsed_data.get(key, None)
-            if parsed_val is None and raw_val:
-                try:
-                    parsed_val = yaml.safe_load(raw_val)
-                except Exception:
-                    parsed_val = raw_val.strip(' "\'')
+            yaml_lines.append({
+                'type': 'field',
+                'id': field_id,
+                'key': k_key,
+                'indent': k_indent,
+                'colonSep': k_colon_sep,
+                'quote': quote,
+                'val': parsed_val,
+                'isBool': is_bool,
+                'isNumber': is_number,
+                'inlineComment': f' {k_inline_comment}' if k_inline_comment else ''
+            })
 
-            # Avoid rendering full nested dictionaries as simple inputs
-            if isinstance(parsed_val, dict):
-                continue
-
-            # Determine field type and options
+            # Create form field entry
             options = parse_comment_options(help_text)
             field_type = "text"
-            default_val = parsed_val
 
-            if isinstance(parsed_val, bool):
+            if is_bool:
                 field_type = "checkbox"
-                default_val = parsed_val
-            elif isinstance(parsed_val, (int, float)) and not isinstance(parsed_val, bool):
+            elif is_number:
                 field_type = "number"
-                default_val = parsed_val
             elif options:
                 field_type = "select"
-                if default_val not in options and default_val is not None and str(default_val) != "":
-                    options.insert(0, str(default_val))
-                default_val = str(default_val) if default_val is not None else options[0]
+                if parsed_val not in options and parsed_val is not None and str(parsed_val) != "":
+                    options.insert(0, str(parsed_val))
+                parsed_val = str(parsed_val) if parsed_val is not None else options[0]
             elif str(parsed_val).upper() in ['YES', 'NO']:
                 field_type = "select"
                 options = ['YES', 'NO']
-                default_val = str(parsed_val).upper()
-            else:
-                field_type = "text"
-                default_val = "" if parsed_val is None else str(parsed_val)
+                parsed_val = str(parsed_val).upper()
 
-            placeholder = f"Path to {key}" if any(w in key.lower() for w in ['input', 'file', 'ref', 'anno', 'path', 'dir']) else ""
+            # Format human label
+            label = format_label(k_key)
+            if len(path_parts) > 1:
+                prefix = ' > '.join(format_label(p) for p in path_parts[:-1])
+                label = f"{label} ({prefix})"
+
+            placeholder = f"Path to {k_key}" if any(w in k_key.lower() for w in ['input', 'file', 'ref', 'anno', 'path', 'dir']) else ""
+
+            # Determine section
+            field_section = current_section
+            if not field_section:
+                field_section = format_label(path_parts[0]) if len(path_parts) > 1 else "Parameters"
 
             field_dict = {
-                "id": key,
-                "label": format_label(key),
+                "id": field_id,
+                "label": label,
                 "type": field_type,
-                "default": default_val
+                "default": parsed_val,
+                "section": field_section
             }
-            if current_section:
-                field_dict["section"] = current_section
             if placeholder:
                 field_dict["placeholder"] = placeholder
             if options:
@@ -599,9 +672,9 @@ def parse_params_yaml(yaml_path):
             if help_text:
                 field_dict["help"] = help_text
 
-            fields.append(field_dict)
+            form_fields.append(field_dict)
 
-    return fields
+    return yaml_lines, form_fields
 
 
 def generate_builder_html(pipeline_dir=".", config_file=None, params_file=None, output_file=None, title=None, main_script="main.nf"):
@@ -616,7 +689,7 @@ def generate_builder_html(pipeline_dir=".", config_file=None, params_file=None, 
         config_file = candidate_config if os.path.exists(candidate_config) else None
 
     if not params_file:
-        for candidate in ["params.yaml", "params.yml", "params.test.yaml", "parameters.yaml"]:
+        for candidate in ["params.yaml", "params.yml", "params.test.yaml", "params.pod.yaml", "parameters.yaml"]:
             p = os.path.join(pipeline_dir, candidate)
             if os.path.exists(p):
                 params_file = p
@@ -625,8 +698,8 @@ def generate_builder_html(pipeline_dir=".", config_file=None, params_file=None, 
     # Parse config
     profiles, manifest = parse_nextflow_config(config_file) if config_file else (['standard', 'local'], {})
     
-    # Parse params
-    pipeline_fields = parse_params_yaml(params_file) if params_file else []
+    # Parse params preserving exact lines & comments
+    yaml_lines, pipeline_fields = parse_params_yaml_full(params_file) if params_file else ([], [])
 
     # Title and description
     pipe_name = os.path.basename(pipeline_dir.rstrip("/"))
@@ -685,7 +758,8 @@ def generate_builder_html(pipeline_dir=".", config_file=None, params_file=None, 
         title=final_title,
         description=description,
         pipeline_path=main_script,
-        fields_json=json.dumps(all_fields)
+        fields_json=json.dumps(all_fields),
+        yaml_lines_json=json.dumps(yaml_lines)
     )
 
     # Determine output file path
@@ -706,7 +780,7 @@ def generate_builder_html(pipeline_dir=".", config_file=None, params_file=None, 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Generate interactive HTML Command Builder for Nextflow pipelines from nextflow.config and params.yaml."
+        description="Generate interactive HTML Command Builder for Nextflow pipelines preserving exact YAML comments and structure."
     )
     parser.add_argument(
         "pipeline_dir",
