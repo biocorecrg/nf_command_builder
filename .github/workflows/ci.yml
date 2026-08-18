@@ -40,7 +40,7 @@ jobs:
       - name: Install Python dependencies
         run: |
           pip install --upgrade pip
-          pip install pyyaml
+          pip install -r requirements.txt
 
       - name: Generate HTML Command Builder in docs/
         run: |

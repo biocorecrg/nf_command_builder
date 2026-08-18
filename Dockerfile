@@ -8,7 +8,8 @@ LABEL org.opencontainers.image.source="https://github.com/biocorecrg/nf_command_
 WORKDIR /workspace
 
 # Install dependencies
-RUN pip install --no-cache-dir pyyaml
+COPY requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir -r /tmp/requirements.txt
 
 # Copy command builder script
 COPY nf_command_builder.py /usr/local/bin/nf_command_builder
