@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Nextflow Pipeline Command Builder</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #f8fafc;
+            --bg-secondary: #ffffff;
+            --text-primary: #0f172a;
+            --text-secondary: #475569;
+            --accent-primary: #0ea5e9;
+            --accent-hover: #0284c7;
+            --border-color: #e2e8f0;
+            --code-bg: #1e293b;
+            --code-text: #f8fafc;
+            --section-bg: #f1f5f9;
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.5;
+            padding: 2rem 1rem;
+        }
+        .container {
+            max-width: 1040px;
+            margin: 0 auto;
+        }
+        header {
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+        h1 {
+            font-size: 2.25rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            color: var(--text-primary);
+            letter-spacing: -0.025em;
+        }
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 1.05rem;
+            max-width: 650px;
+            margin: 0 auto;
+        }
+        .card {
+            background-color: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: var(--shadow-md);
+            margin-bottom: 2rem;
+        }
+        .section-header {
+            grid-column: 1 / -1;
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            padding: 0.5rem 0.75rem;
+            background-color: var(--section-bg);
+            border-left: 4px solid var(--accent-primary);
+            border-radius: 4px;
+            margin-top: 0.75rem;
+            margin-bottom: 0.25rem;
+        }
+        .section-header:first-of-type {
+            margin-top: 0;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+        }
+        @media (min-width: 768px) {
+            .grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        .form-group.full-width {
+            grid-column: 1 / -1;
+        }
+        label {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        .help-text {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-top: -0.25rem;
+            line-height: 1.35;
+        }
+        select, input[type="text"], input[type="number"] {
+            width: 100%;
+            padding: 0.625rem 0.875rem;
+            font-size: 0.875rem;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background-color: var(--bg-secondary);
+            color: var(--text-primary);
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+        select:focus, input[type="text"]:focus, input[type="number"]:focus {
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15);
+            outline: none;
+        }
+        .checkbox-group {
+            flex-direction: row;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        .checkbox-group input[type="checkbox"] {
+            width: 1.2rem;
+            height: 1.2rem;
+            accent-color: var(--accent-primary);
+            cursor: pointer;
+        }
+        .checkbox-group label {
+            cursor: pointer;
+            margin-bottom: 0;
+        }
+        .output-card {
+            background-color: var(--code-bg);
+            color: var(--code-text);
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: var(--shadow-md);
+            margin-bottom: 1.5rem;
+        }
+        .output-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding-bottom: 0.75rem;
+        }
+        .output-title {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #94a3b8;
+            font-weight: 600;
+        }
+        .copy-btn {
+            background-color: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: var(--code-text);
+            padding: 0.375rem 0.75rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.15s ease;
+        }
+        .copy-btn:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+        pre {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.875rem;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Test Nextflow Pipeline Command Builder</h1>
+            <p class="subtitle">A simple Nextflow pipeline demonstrating profile switching between local and HPC</p>
+        </header>
+
+        <div class="card">
+            <div class="grid" id="formInputs"></div>
+        </div>
+
+        <div class="output-card">
+            <div class="output-header">
+                <span class="output-title">Nextflow Command</span>
+                <button class="copy-btn" id="copyCmdBtn">Copy</button>
+            </div>
+            <pre><code id="commandOutput"></code></pre>
+        </div>
+        
+        <div class="output-card">
+            <div class="output-header">
+                <span class="output-title">params.yaml Content</span>
+                <button class="copy-btn" id="copyYamlBtn">Copy YAML</button>
+            </div>
+            <pre><code id="yamlOutput"></code></pre>
+        </div>
+    </div>
+
+    <script>
+        const inputsData = [{"id": "profile", "label": "Nextflow Profile", "type": "select", "options": ["local", "hpc"], "default": "local", "section": "Execution Settings"}, {"id": "work_dir", "label": "Work Directory", "type": "text", "default": "", "placeholder": "work (Optional)", "fullWidth": true, "section": "Execution Settings"}, {"id": "paramsFile", "label": "Params File Name", "type": "text", "default": "params.yaml", "placeholder": "params.yaml", "fullWidth": true, "help": "The filename to save the generated YAML under (default: params.yaml).", "section": "Execution Settings"}, {"id": "resume", "label": "Resume Execution (-resume)", "type": "checkbox", "default": false, "section": "Execution Settings"}, {"id": "bg", "label": "Run in Background (-bg)", "type": "checkbox", "default": false, "section": "Execution Settings"}, {"id": "input", "label": "Input", "type": "text", "default": "data/sample.fastq", "section": "Input & Reference Files", "placeholder": "Path to input", "help": "Path to input FASTQ or BAM file"}, {"id": "reference", "label": "Reference", "type": "text", "default": "data/reference.fasta", "section": "Input & Reference Files", "placeholder": "Path to reference", "help": "Path to reference genome FASTA file"}, {"id": "annotation", "label": "Annotation", "type": "text", "default": "", "section": "Input & Reference Files", "placeholder": "Path to annotation", "help": "Optional reference annotation GTF/GFF file (leave empty if not available)"}, {"id": "aligner", "label": "Aligner", "type": "select", "default": "minimap2", "section": "Analysis & Processing Options", "options": ["minimap2", "bwa", "bowtie2", "skip"], "help": "Read alignment tool. Can be minimap2 / bwa / bowtie2 / skip"}, {"id": "qc_mode", "label": "Qc Mode", "type": "select", "default": "standard", "section": "Analysis & Processing Options", "options": ["fast", "standard", "thorough", "skip"], "help": "Quality control analysis mode. Can be fast / standard / thorough / skip"}, {"id": "variant_caller", "label": "Variant Caller", "type": "select", "default": "freebayes", "section": "Analysis & Processing Options", "options": ["freebayes", "clair3", "bcftools", "skip"], "help": "Variant calling algorithm. Can be freebayes / clair3 / bcftools / skip"}, {"id": "filter_quality", "label": "Filter Quality", "type": "select", "default": "YES", "section": "Analysis & Processing Options", "options": ["YES", "skip"], "help": "Filter low quality reads. Can be YES or skip"}, {"id": "threads", "label": "Threads", "type": "number", "default": 4, "section": "Resource & Filtering Thresholds", "help": "Number of CPU threads to allocate per task"}, {"id": "min_read_length", "label": "Min Read Length", "type": "number", "default": 50, "section": "Resource & Filtering Thresholds", "help": "Minimum read length in base pairs for QC filtering"}, {"id": "subsample_pct", "label": "Subsample Pct", "type": "number", "default": 100, "section": "Resource & Filtering Thresholds", "help": "Percentage of reads to process (1-100)"}, {"id": "output_dir", "label": "Output Dir", "type": "text", "default": "results", "section": "Flags & Output Configuration", "placeholder": "Path to output_dir", "help": "Directory where final outputs and reports will be saved"}, {"id": "save_intermediate", "label": "Save Intermediate", "type": "checkbox", "default": false, "section": "Flags & Output Configuration", "options": ["true", "false"], "help": "Save intermediate alignment BAM files (true/false)"}, {"id": "verbose", "label": "Verbose", "type": "checkbox", "default": true, "section": "Flags & Output Configuration", "help": "Enable detailed verbose logging"}, {"id": "slackhook", "label": "Slackhook", "type": "select", "default": "skip", "section": "Flags & Output Configuration", "options": ["URL", "skip"], "help": "Slack webhook URL for notifications (can be URL or skip)"}];
+        const pipelinePath = "main.nf";
+
+        function renderInputs() {
+            const container = document.getElementById('formInputs');
+            let currentSection = null;
+
+            inputsData.forEach(field => {
+                if (field.section && field.section !== currentSection) {
+                    currentSection = field.section;
+                    const secHeader = document.createElement('div');
+                    secHeader.className = 'section-header';
+                    secHeader.textContent = currentSection;
+                    container.appendChild(secHeader);
+                }
+
+                const formGroup = document.createElement('div');
+                formGroup.className = 'form-group' + (field.type === 'checkbox' ? ' checkbox-group' : '');
+                if (field.fullWidth) formGroup.classList.add('full-width');
+
+                if (field.type === 'checkbox') {
+                    formGroup.innerHTML = `<input type="checkbox" id="${field.id}" ${field.default ? 'checked' : ''}>
+                                           <label for="${field.id}">${field.label}</label>`;
+                } else {
+                    formGroup.innerHTML = `<label for="${field.id}">${field.label}</label>`;
+                    if (field.type === 'select') {
+                        const select = document.createElement('select');
+                        select.id = field.id;
+                        field.options.forEach(opt => {
+                            const option = document.createElement('option');
+                            option.value = opt;
+                            option.textContent = opt;
+                            if (opt === field.default) option.selected = true;
+                            select.appendChild(option);
+                        });
+                        formGroup.appendChild(select);
+                    } else {
+                        const input = document.createElement('input');
+                        input.type = field.type;
+                        input.id = field.id;
+                        input.value = field.default !== undefined && field.default !== null ? field.default : '';
+                        if (field.placeholder) input.placeholder = field.placeholder;
+                        formGroup.appendChild(input);
+                    }
+                }
+                if (field.help) {
+                    const help = document.createElement('span');
+                    help.className = 'help-text';
+                    help.textContent = field.help;
+                    formGroup.appendChild(help);
+                }
+                container.appendChild(formGroup);
+            });
+
+            container.querySelectorAll('input, select').forEach(el => {
+                el.addEventListener('input', generateCommand);
+                el.addEventListener('change', generateCommand);
+            });
+
+            generateCommand();
+        }
+
+        function generateCommand() {
+            let cmd = `nextflow run ${pipelinePath}`;
+            let yaml = '';
+            
+            const profileEl = document.getElementById('profile');
+            if (profileEl && profileEl.value) {
+                cmd += ` -profile ${profileEl.value}`;
+            }
+            
+            const workDirEl = document.getElementById('work_dir');
+            if (workDirEl && workDirEl.value.trim() !== '') {
+                cmd += ` -w ${workDirEl.value.trim()}`;
+            }
+            
+            const resumeEl = document.getElementById('resume');
+            if (resumeEl && resumeEl.checked) {
+                cmd += ' -resume';
+            }
+
+            const bgEl = document.getElementById('bg');
+            if (bgEl && bgEl.checked) {
+                cmd += ' -bg';
+            }
+
+            const paramsFileEl = document.getElementById('paramsFile');
+            const paramsFile = (paramsFileEl && paramsFileEl.value.trim()) ? paramsFileEl.value.trim() : 'params.yaml';
+            cmd += ` -params-file ${paramsFile}`;
+
+            inputsData.forEach(field => {
+                if (['profile', 'work_dir', 'paramsFile', 'resume', 'bg'].includes(field.id)) return;
+                
+                const el = document.getElementById(field.id);
+                if (!el) return;
+
+                if (field.type === 'checkbox') {
+                    const isChecked = el.checked;
+                    if (isChecked || field.default !== false) {
+                        yaml += `${field.id}: ${isChecked}\n`;
+                    }
+                } else {
+                    const val = el.value;
+                    if (val !== '') {
+                        if (field.type === 'number') {
+                            yaml += `${field.id}: ${val}\n`;
+                        } else {
+                            yaml += `${field.id}: "${val}"\n`;
+                        }
+                    } else if (field.preserveEmpty) {
+                        yaml += `${field.id}: ""\n`;
+                    }
+                }
+            });
+            
+            document.getElementById('commandOutput').textContent = cmd;
+            document.getElementById('yamlOutput').textContent = yaml;
+        }
+
+        document.getElementById('copyCmdBtn').addEventListener('click', () => {
+            navigator.clipboard.writeText(document.getElementById('commandOutput').textContent).then(() => {
+                const btn = document.getElementById('copyCmdBtn');
+                btn.textContent = 'Copied!';
+                setTimeout(() => btn.textContent = 'Copy', 2000);
+            });
+        });
+        
+        document.getElementById('copyYamlBtn').addEventListener('click', () => {
+            navigator.clipboard.writeText(document.getElementById('yamlOutput').textContent).then(() => {
+                const btn = document.getElementById('copyYamlBtn');
+                btn.textContent = 'Copied!';
+                setTimeout(() => btn.textContent = 'Copy YAML', 2000);
+            });
+        });
+
+        renderInputs();
+    </script>
+</body>
+</html>

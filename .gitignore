@@ -1,0 +1,21 @@
+# Nextflow work and logs
+.nextflow*
+work/
+.nextflow/
+*.log
+
+# Execution results
+results/
+test_nf_pipe/work/
+test_nf_pipe/.nextflow/
+test_nf_pipe/.nextflow.log*
+test_nf_pipe/results/
+
+# Python cache
+__pycache__/
+*.py[cod]
+.venv/
+
+# OS files
+.DS_Store
+Thumbs.db

@@ -1,0 +1,53 @@
+# ==============================================================================
+# Pipeline Parameters
+# ==============================================================================
+
+# Input & Reference Files
+# -----------------------
+## Path to input FASTQ or BAM file
+input: "data/sample.fastq"
+
+## Path to reference genome FASTA file
+reference: "data/reference.fasta"
+
+## Optional reference annotation GTF/GFF file (leave empty if not available)
+annotation: ""
+
+# Analysis & Processing Options
+# -----------------------------
+## Read alignment tool. Can be minimap2 / bwa / bowtie2 / skip
+aligner: "minimap2"
+
+## Quality control analysis mode. Can be fast / standard / thorough / skip
+qc_mode: "standard"
+
+## Variant calling algorithm. Can be freebayes / clair3 / bcftools / skip
+variant_caller: "freebayes"
+
+## Filter low quality reads. Can be YES or skip
+filter_quality: "YES"
+
+# Resource & Filtering Thresholds
+# -------------------------------
+## Number of CPU threads to allocate per task
+threads: 4
+
+## Minimum read length in base pairs for QC filtering
+min_read_length: 50
+
+## Percentage of reads to process (1-100)
+subsample_pct: 100
+
+# Flags & Output Configuration
+# ----------------------------
+## Directory where final outputs and reports will be saved
+output_dir: "results"
+
+## Save intermediate alignment BAM files (true/false)
+save_intermediate: false
+
+## Enable detailed verbose logging
+verbose: true
+
+## Slack webhook URL for notifications (can be URL or skip)
+slackhook: "skip"
