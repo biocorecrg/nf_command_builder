@@ -17,7 +17,7 @@ The generated standalone HTML file allows users to dynamically configure pipelin
   - **Tooltips / Help text** extracted directly from doc comments.
   - **Grouped section headers** for visual clarity.
 - **Real-Time Interactive UI**:
-  - Live Nextflow command preview (`-profile`, `-w`, `-params-file`, `-resume`, `-bg`).
+  - Live Nextflow command preview (`-profile`, `-o`, `-w`, `-params-file`, `-resume`, `-bg`, `-with-tower`, `-with-report`).
   - Live formatted `params.yaml` content generator.
   - One-click copy buttons with visual feedback.
   - Responsive, modern design with zero external JavaScript dependencies.
@@ -131,13 +131,38 @@ filter_quality: "YES"
 ## Number of CPU threads to allocate per task
 threads: 4
 
-## Save intermediate alignment BAM files (true/false)
-save_intermediate: false
+## Enable detailed verbose logging
+verbose: true
 ```
 
 - **Section Headers**: Lines like `# Input Files #` or `# ---- Section ----` create visual grouping dividers in the form.
 - **Select Dropdowns**: Phrases like `Can be opt1 / opt2 / skip`, `either X or Y`, or `(can be YES or skip)` automatically convert text inputs into dropdown menus.
 - **Help Text**: Any comment preceding the parameter key is converted into description text underneath the input.
+
+---
+
+## How to Hide / Skip Profiles from the Command Builder
+
+If your pipeline defines internal, testing, or reporting profiles (e.g. `cost`, `test`, `debug`) that should **not** appear in the command builder profile dropdown, add `// skip in the builder` either:
+
+1. **At the top of the included `.config` file**:
+   ```groovy
+   // skip in the builder
+   plugins {
+       id 'nf-crg-report@1.1.10'
+   }
+   ```
+
+2. **Or directly in `nextflow.config`**:
+   ```groovy
+   profiles {
+       local { includeConfig 'conf/local.config' }
+       hpc   { includeConfig 'conf/hpc.config' }
+
+       // skip in the builder
+       cost  { includeConfig 'conf/cost.config' }
+   }
+   ```
 
 ---
 

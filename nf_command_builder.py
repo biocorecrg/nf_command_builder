@@ -299,6 +299,11 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             if (profileEl && profileEl.value) {{
                 cmd += ` -profile ${{profileEl.value}}`;
             }}
+
+            const outputDirEl = document.getElementById('output_dir');
+            if (outputDirEl && outputDirEl.value.trim() !== '') {{
+                cmd += ` -o ${{outputDirEl.value.trim()}}`;
+            }}
             
             const workDirEl = document.getElementById('work_dir');
             if (workDirEl && workDirEl.value.trim() !== '') {{
@@ -313,6 +318,16 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             const bgEl = document.getElementById('bg');
             if (bgEl && bgEl.checked) {{
                 cmd += ' -bg';
+            }}
+
+            const towerEl = document.getElementById('with_tower');
+            if (towerEl && towerEl.checked) {{
+                cmd += ' -with-tower';
+            }}
+
+            const reportEl = document.getElementById('with_report');
+            if (reportEl && reportEl.checked) {{
+                cmd += ' -with-report';
             }}
 
             const paramsFileEl = document.getElementById('paramsFile');
@@ -355,7 +370,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             }} else {{
                 // Fallback if no yamlLinesData
                 inputsData.forEach(field => {{
-                    if (['profile', 'work_dir', 'paramsFile', 'resume', 'bg'].includes(field.id)) return;
+                    if (['profile', 'output_dir', 'work_dir', 'paramsFile', 'resume', 'bg', 'with_tower', 'with_report'].includes(field.id)) return;
                     const el = document.getElementById(field.id);
                     if (!el) return;
                     if (field.type === 'checkbox') {{
@@ -412,6 +427,7 @@ def parse_nextflow_config(config_path):
     if not os.path.exists(config_path):
         return ['standard', 'local'], manifest
 
+    config_dir = os.path.dirname(os.path.abspath(config_path))
     with open(config_path, 'r', encoding='utf-8') as f:
         content = f.read()
 
@@ -438,26 +454,64 @@ def parse_nextflow_config(config_path):
                 manifest['author'] = auth_m.group(1)
 
     # Extract profiles block
+    skip_regex = r'(?://|#)\s*skip\s+in\s+(?:the\s+)?(?:command\s+)?builder'
     p_match = re.search(r'profiles\s*\{(.*)', content_no_comments, re.DOTALL)
     if p_match:
         block = p_match.group(1)
         depth = 1
-        lines = block.splitlines()
-        for line in lines:
+        current_profile = None
+        profile_lines = []
+        pending_comments = []
+
+        for line in block.splitlines():
             line_str = line.strip()
+
             if line_str.startswith('//'):
+                if depth == 1:
+                    pending_comments.append(line_str)
+                elif current_profile is not None:
+                    profile_lines.append(line_str)
                 continue
-            
+
             if depth == 1:
                 prof_m = re.match(r'([a-zA-Z0-9_-]+)\s*\{', line_str)
                 if prof_m:
-                    prof_name = prof_m.group(1)
-                    if prof_name not in profiles:
-                        profiles.append(prof_name)
+                    current_profile = prof_m.group(1)
+                    profile_lines = [line_str] + pending_comments
+                    pending_comments = []
+
+            elif depth > 1 and current_profile is not None:
+                profile_lines.append(line_str)
 
             open_count = line_str.count('{')
             close_count = line_str.count('}')
             depth += open_count - close_count
+
+            if depth == 1 and current_profile is not None:
+                # Finished analyzing this profile block
+                profile_text = '\n'.join(profile_lines)
+                should_skip = False
+
+                if re.search(skip_regex, profile_text, re.IGNORECASE):
+                    should_skip = True
+
+                # Check any included config files
+                inc_matches = re.findall(r'includeConfig\s+[\'"]([^\'"]+)[\'"]', profile_text)
+                for inc_file in inc_matches:
+                    clean_inc = inc_file.replace('$projectDir/', '').replace('${projectDir}/', '').replace('$baseDir/', '').replace('${baseDir}/', '')
+                    inc_path = os.path.normpath(os.path.join(config_dir, clean_inc))
+                    if os.path.exists(inc_path):
+                        with open(inc_path, 'r', encoding='utf-8') as inc_f:
+                            if re.search(skip_regex, inc_f.read(), re.IGNORECASE):
+                                should_skip = True
+                                break
+
+                if not should_skip and current_profile not in profiles:
+                    profiles.append(current_profile)
+
+                current_profile = None
+                profile_lines = []
+
             if depth <= 0:
                 break
 
@@ -467,9 +521,16 @@ def parse_nextflow_config(config_path):
     return profiles, manifest
 
 
+NON_OPTION_WORDS = [
+    'empty', 'must', 'apply', 'implied', 'implies', 'case', 'value', 'path',
+    'url', 'uri', 'file', 'string', 'number', 'regex', 'int', 'float',
+    'directory', 'dir', 'pattern', 'text', 'format', 'threshold', 'parameter'
+]
+
+
 def clean_token(token):
     t = token.strip(' "\'():;.,')
-    t = re.sub(r'^(?:(?:it\s+)?can\s+be\s+(?:either\s+)?|(?:it\s+)?must\s+be\s+(?:either\s+)?|either\s+|or\s+)', '', t, flags=re.IGNORECASE).strip(' "\'()')
+    t = re.sub(r'^(?:(?:it\s+)?can\s+be\s+(?:either\s+)?|(?:it\s+)?must\s+be\s+(?:either\s+)?|either\s+|or\s+|a\s+|an\s+)', '', t, flags=re.IGNORECASE).strip(' "\'()')
     if ' for ' in t.lower():
         t = re.split(r'\s+for\s+', t, flags=re.IGNORECASE)[0].strip()
     return t
@@ -488,7 +549,7 @@ def parse_comment_options(help_text):
         raw = pm.group(0).strip('()')
         tokens = re.split(r'\s*/\s*|\s*,\s*|\s+or\s+', raw)
         opts = [clean_token(t) for t in tokens if clean_token(t)]
-        opts = [o for o in opts if len(o) < 30 and not any(w in o.lower() for w in ['empty', 'must', 'apply', 'implied', 'implies', 'case', 'value', 'path'])]
+        opts = [o for o in opts if len(o) < 30 and not any(w in o.lower() for w in NON_OPTION_WORDS)]
         if len(opts) >= 2:
             return list(dict.fromkeys(opts))
 
@@ -503,7 +564,7 @@ def parse_comment_options(help_text):
         opts = []
         for t in tokens:
             ct = clean_token(t)
-            if ct and len(ct.split()) <= 2 and not any(w in ct.lower() for w in ['empty', 'must', 'apply', 'implied', 'implies', 'case', 'value', 'path', 'if']):
+            if ct and len(ct.split()) <= 2 and not any(w in ct.lower() for w in NON_OPTION_WORDS + ['if']):
                 ct = ct.split()[0].strip(' "\'()')
                 if ct:
                     opts.append(ct)
@@ -592,6 +653,11 @@ def parse_params_yaml_full(yaml_path):
             path_parts = [p[1] for p in parent_stack] + [k_key]
             field_id = '__'.join(path_parts)
 
+            # If top-level key is output_dir, ignore it from params.yaml as it is handled by the -o Nextflow CLI flag
+            if len(path_parts) == 1 and k_key in ['output_dir']:
+                pending_comments = []
+                continue
+
             quote = ''
             parsed_val = k_val
             is_bool = False
@@ -651,7 +717,11 @@ def parse_params_yaml_full(yaml_path):
                 prefix = ' > '.join(format_label(p) for p in path_parts[:-1])
                 label = f"{label} ({prefix})"
 
-            placeholder = f"Path to {k_key}" if any(w in k_key.lower() for w in ['input', 'file', 'ref', 'anno', 'path', 'dir']) else ""
+            placeholder = ""
+            if any(w in k_key.lower() for w in ['slack', 'webhook']):
+                placeholder = "Webhook URL or skip"
+            elif any(w in k_key.lower() for w in ['input', 'file', 'ref', 'anno', 'path', 'dir']):
+                placeholder = f"Path to {k_key}"
 
             # Determine section
             field_section = current_section
@@ -718,6 +788,16 @@ def generate_builder_html(pipeline_dir=".", config_file=None, params_file=None, 
             "section": "Execution Settings"
         },
         {
+            "id": "output_dir",
+            "label": "Output Directory (-o)",
+            "type": "text",
+            "default": "results",
+            "placeholder": "results",
+            "fullWidth": True,
+            "help": "Directory where final output files and reports will be saved (-o).",
+            "section": "Execution Settings"
+        },
+        {
             "id": "work_dir",
             "label": "Work Directory",
             "type": "text",
@@ -746,6 +826,20 @@ def generate_builder_html(pipeline_dir=".", config_file=None, params_file=None, 
         {
             "id": "bg",
             "label": "Run in Background (-bg)",
+            "type": "checkbox",
+            "default": False,
+            "section": "Execution Settings"
+        },
+        {
+            "id": "with_tower",
+            "label": "Nextflow Tower / Seqera (-with-tower)",
+            "type": "checkbox",
+            "default": False,
+            "section": "Execution Settings"
+        },
+        {
+            "id": "with_report",
+            "label": "Execution Report (-with-report)",
             "type": "checkbox",
             "default": False,
             "section": "Execution Settings"
