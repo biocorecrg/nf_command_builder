@@ -22,15 +22,12 @@ params.min_read_length   = 50
 params.subsample_pct     = 100
 params.verbose           = true
 params.slackhook         = "skip"
-
-def getOutputDir() {
-    return workflow.outputDir ?: (params.output_dir ?: "results")
-}
+params.output_dir        = workflow.outputDir ?: (params.output_dir ?: "results")
 
 process QC_CHECK {
     tag "QC on ${reads.name}"
     label 'process_low'
-    publishDir "${getOutputDir()}/qc", mode: 'copy'
+    publishDir "${params.output_dir}/qc", mode: 'copy'
 
     input:
     path reads
@@ -51,7 +48,7 @@ process QC_CHECK {
 process ALIGN_READS {
     tag "Align with ${params.aligner}"
     label 'process_medium'
-    publishDir "${getOutputDir()}/alignment", mode: 'copy'
+    publishDir "${params.output_dir}/alignment", mode: 'copy'
 
     input:
     path reads
@@ -76,7 +73,7 @@ process ALIGN_READS {
 process GENERATE_REPORT {
     tag "Summary Report"
     label 'process_low'
-    publishDir "${getOutputDir()}/report", mode: 'copy'
+    publishDir "${params.output_dir}/report", mode: 'copy'
 
     input:
     path qc_report
@@ -115,7 +112,7 @@ workflow {
      Aligner         : ${params.aligner}
      QC Mode         : ${params.qc_mode}
      Variant Caller  : ${params.variant_caller}
-     Output Dir      : ${getOutputDir()}
+     Output Dir      : ${params.output_dir}
      Threads         : ${params.threads}
     ==================================================
     """
