@@ -543,8 +543,12 @@ def parse_comment_options(help_text):
     if not help_text:
         return []
     
-    # Check parenthetical forms: (can be YES or skip), (YES / NO), (YES, NO)
-    pm = re.search(r'\(\s*(?:(?:(?:it\s+)?(?:can|must)\s+be\s+)?|(?:YES|NO|skip|true|false)\s*(?:\/|,|\bor\b))([^\)]+)\)', help_text, re.IGNORECASE)
+    # Check parenthetical forms with explicit choice markers: (can be YES or skip), (YES / NO), (options: opt1, opt2)
+    pm = re.search(
+        r'\(\s*(?:(?:(?:it\s+)?(?:can|must)\s+be\s+(?:either\s+)?|(?:options|choices)\s*:\s*|\beither\s+)|(?:YES|NO|skip|true|false)\s*(?:\/|,|\bor\b\s*))([^\)]+)\)',
+        help_text,
+        re.IGNORECASE
+    )
     if pm:
         raw = pm.group(0).strip('()')
         tokens = re.split(r'\s*/\s*|\s*,\s*|\s+or\s+', raw)
@@ -557,7 +561,7 @@ def parse_comment_options(help_text):
     clean_help = re.sub(r'\([^)]*\)', '', help_text)
     
     # Check explicit 'can be', 'either', 'options:', 'choices:'
-    m = re.search(r'(?:(?:it\s+)?can\s+be\s+(?:either\s+)?|(?:options|choices)\s*:\s*|\beither\s+)([^.]+)', clean_help, re.IGNORECASE)
+    m = re.search(r'(?:(?:it\s+)?(?:can|must)\s+be\s+(?:either\s+)?|(?:options|choices)\s*:\s*|\beither\s+)([^.]+)', clean_help, re.IGNORECASE)
     if m:
         phrase = m.group(1)
         tokens = re.split(r'\s*/\s*|\s*,\s*|\s+or\s+', phrase)
@@ -695,6 +699,15 @@ def parse_params_yaml_full(yaml_path):
 
             # Create form field entry
             options = parse_comment_options(help_text)
+            
+            # If default value is a filesystem path (e.g. /path/to/file or ./path) and options do not contain paths,
+            # do not force it into a select dropdown
+            is_path_val = isinstance(parsed_val, str) and (
+                parsed_val.startswith('/') or parsed_val.startswith('./') or parsed_val.startswith('../') or parsed_val.startswith('~/')
+            )
+            if is_path_val and options and not any('/' in opt for opt in options):
+                options = []
+
             field_type = "text"
 
             if is_bool:
